@@ -11,15 +11,28 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
 
   const fetchImages = async () => {
     setLoading(true);
     let url;
-    url = `${mainUrl}${clientID}&page=${page}`;
+    if (query) {
+      url = `${searchUrl}${clientID}&page=${page}&query=${query}`;
+    } else {
+      url = `${mainUrl}${clientID}&page=${page}`;
+    }
     try {
       const response = await fetch(url);
-      const data = await response.json();
-      setPhotos(data);
+      const newData = await response.json();
+      setPhotos((prevData) => {
+        if (query && page === 1) {
+          return newData.results;
+        } else if (query) {
+          return [...prevData, ...newData.results];
+        } else {
+          return [...prevData, ...newData];
+        }
+      });
       setLoading(false);
     } catch (error) {
       setLoading(false);
@@ -29,20 +42,27 @@ function App() {
 
   useEffect(() => {
     fetchImages();
-  }, []);
+  }, [page]);
+
+  const handleScroll = () => {
+    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+    if (scrollTop + clientHeight >= scrollHeight - 10) {
+      setPage((prevPage) => prevPage + 1);
+    }
+  };
 
   useEffect(() => {
-    const event = window.addEventListener("scroll", () => {
-      if (
-        !loading &&
-        window.innerHeight + window.scrollY >= document.body.scrollHeight - 5
-      ){}
-    });
-    return () => window.removeEventListener("scroll", event);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!query) return;
+    if (page === 1) {
+      fetchImages();
+    }
+    setPage(1);
   };
 
   return (
@@ -53,6 +73,8 @@ function App() {
             type='text'
             placeholder='Search photos'
             className='form-input'
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
           />
           <button type='submit' className='submit-btn'>
             <FaSearch />
@@ -61,8 +83,8 @@ function App() {
       </section>
       <section className='photos'>
         <div className='photos-center'>
-          {photos.map((image) => (
-            <Photo key={image.id} {...image} />
+          {photos.map((image, index) => (
+            <Photo key={index} {...image} />
           ))}
         </div>
         {loading && <h2 className='loading'>loading...</h2>}
